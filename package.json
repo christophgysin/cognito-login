@@ -1,0 +1,19 @@
+{
+  "name": "cognito-login",
+  "version": "1.0.0",
+  "description": "",
+  "main": "cognito-login.js",
+  "dependencies": {
+    "amazon-cognito-identity-js": "^4.5.5",
+    "aws-sdk": "^2.806.0"
+  },
+  "peerDependencies": {
+    "crypto-js": "^3.3.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
