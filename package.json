@@ -1,16 +1,12 @@
 {
   "name": "cognito-login",
   "version": "1.0.0",
-  "description": "",
+  "description": "Cognito authentication",
   "main": "cognito-login.js",
   "dependencies": {
     "amazon-cognito-identity-js": "^4.5.5",
     "aws-sdk": "^2.806.0"
   },
-  "devDependencies": {},
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
+  "author": "Christoph Gysin <christoph.gysin@gmail.com",
   "license": "ISC"
 }
