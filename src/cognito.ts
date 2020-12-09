@@ -1,6 +1,7 @@
 import * as crypto from 'crypto'
 import { promisify } from 'util'
 import * as AWS from 'aws-sdk'
+// TODO: use imports?
 const { DateHelper, AuthenticationHelper } = require('amazon-cognito-identity-js')
 const { default: BigInteger } = require('../node_modules/amazon-cognito-identity-js/lib/BigInteger')
 
@@ -91,7 +92,7 @@ export default class Auth {
     const signature = crypto.createHmac('sha256', key)
       .update(this.poolName, 'utf8')
       .update(USERNAME, 'utf8')
-      // @ts-ignore
+      // @ts-ignore TODO: see https://github.com/microsoft/TypeScript/issues/39528
       .update(SECRET_BLOCK, 'base64')
       .update(timestamp, 'utf8')
       .digest('base64')
