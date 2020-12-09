@@ -1,40 +1,45 @@
-const crypto = require('crypto');
-const { promisify } = require('util')
-const AWS = require('aws-sdk')
+import * as crypto from 'crypto'
+import { promisify } from 'util'
+import * as AWS from 'aws-sdk'
 const { DateHelper, AuthenticationHelper } = require('amazon-cognito-identity-js')
 const { default: BigInteger } = require('../node_modules/amazon-cognito-identity-js/lib/BigInteger')
 
 class AuthenticationHelperPromise extends AuthenticationHelper {
-  constructor(...args) {
+  public getLargeAValue: () => any
+  public getPasswordAuthenticationKey: () => any
+  constructor(...args: any) {
     super(...args)
     this.getLargeAValue = promisify(super.getLargeAValue.bind(this))
     this.getPasswordAuthenticationKey = promisify(super.getPasswordAuthenticationKey.bind(this))
   }
 }
 
-class Auth {
-  constructor(poolId, clientId) {
+export default class Auth {
+  private cognito: any
+  private authHelper: any
+  private passwordFunc: () => Promise<string>
+  private mfaFunc: () => Promise<string>
+  private poolName: string
+
+  constructor(readonly poolId: string, readonly clientId: string, readonly username: string, passwordFunc: () => Promise<string>, mfaFunc: () => Promise<string>) {
     const [region, poolName] = poolId.split('_')
     this.poolName = poolName
-    this.clientId = clientId
     this.cognito = new AWS.CognitoIdentityServiceProvider({
       apiVersion: '2016-04-18',
       region,
       credentials: new AWS.Credentials('', '', ''),
     })
     this.authHelper = new AuthenticationHelperPromise(poolName)
-  }
-
-  async login(username, passwordFunc, mfaFunc) {
-    this.username = username
     this.passwordFunc = passwordFunc
     this.mfaFunc = mfaFunc
+  }
 
-    const response = await this.initiateAuth(username)
+  async login() {
+    const response = await this.initiateAuth()
     return this.handleChallenge(response)
   }
 
-  async handleChallenge(response) {
+  async handleChallenge(response: any): Promise<any> {
     const {
       ChallengeName: challenge,
       ChallengeParameters: parameters,
@@ -44,9 +49,9 @@ class Auth {
 
     switch (challenge) {
       case 'PASSWORD_VERIFIER':
-        return this.handleChallenge(await this.verifyPassword(parameters, this.passwordFunc))
+        return this.handleChallenge(await this.verifyPassword(parameters))
       case 'SOFTWARE_TOKEN_MFA':
-        return this.handleChallenge(await this.verifyMfa(this.username, session, this.mfaFunc))
+        return this.handleChallenge(await this.verifyMfa(session))
       case undefined:
         return auth
       default:
@@ -54,7 +59,7 @@ class Auth {
     }
   }
 
-  async initiateAuth(username) {
+  async initiateAuth() {
     const a = await this.authHelper.getLargeAValue()
     const srpA = a.toString(16)
 
@@ -62,14 +67,14 @@ class Auth {
       ClientId: this.clientId,
       AuthFlow: 'USER_SRP_AUTH',
       AuthParameters: {
-        USERNAME: username,
+        USERNAME: this.username,
         SRP_A: srpA,
       },
     }
     return this.cognito.initiateAuth(params).promise()
   }
 
-  async verifyPassword(challengeParameters, passwordFunc) {
+  async verifyPassword(challengeParameters: any) {
     const {
       USERNAME,
       SECRET_BLOCK,
@@ -77,7 +82,7 @@ class Auth {
       SALT,
     } = challengeParameters
 
-    const password = await passwordFunc()
+    const password = await this.passwordFunc()
     const srpB = new BigInteger(SRP_B, 16)
     const salt = new BigInteger(SALT, 16)
     const key = await this.authHelper.getPasswordAuthenticationKey(USERNAME, password, srpB, salt)
@@ -86,6 +91,7 @@ class Auth {
     const signature = crypto.createHmac('sha256', key)
       .update(this.poolName, 'utf8')
       .update(USERNAME, 'utf8')
+      // @ts-ignore
       .update(SECRET_BLOCK, 'base64')
       .update(timestamp, 'utf8')
       .digest('base64')
@@ -103,22 +109,18 @@ class Auth {
     return this.cognito.respondToAuthChallenge(params).promise()
   }
 
-  async verifyMfa(username, session, mfaFunc) {
-    const mfaCode = await mfaFunc()
+  async verifyMfa(session: string) {
+    const mfaCode = await this.mfaFunc()
 
     const params = {
       ChallengeName: 'SOFTWARE_TOKEN_MFA',
       Session: session,
       ClientId: this.clientId,
       ChallengeResponses: {
-        USERNAME: username,
+        USERNAME: this.username,
         SOFTWARE_TOKEN_MFA_CODE: mfaCode,
       },
     }
     return this.cognito.respondToAuthChallenge(params).promise()
   }
-}
-
-module.exports = {
-  Auth,
 }

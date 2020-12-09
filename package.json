@@ -4,9 +4,14 @@
   "description": "Cognito authentication",
   "main": "cognito-login.js",
   "dependencies": {
+    "@types/node": "^14.14.11",
     "amazon-cognito-identity-js": "^4.5.5",
     "aws-sdk": "^2.806.0"
   },
   "author": "Christoph Gysin <christoph.gysin@gmail.com",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "ts-node": "^9.1.1",
+    "typescript": "^4.1.2"
+  }
 }
