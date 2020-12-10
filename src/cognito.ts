@@ -5,19 +5,37 @@ import * as AWS from 'aws-sdk'
 const { DateHelper, AuthenticationHelper } = require('amazon-cognito-identity-js')
 const { default: BigInteger } = require('../node_modules/amazon-cognito-identity-js/lib/BigInteger')
 
+type BigInteger = typeof BigInteger
+
 class AuthenticationHelperPromise extends AuthenticationHelper {
-  public getLargeAValue: () => any
-  public getPasswordAuthenticationKey: () => any
-  constructor(...args: any) {
-    super(...args)
-    this.getLargeAValue = promisify(super.getLargeAValue.bind(this))
-    this.getPasswordAuthenticationKey = promisify(super.getPasswordAuthenticationKey.bind(this))
+  constructor(poolName: string) {
+    super(poolName)
   }
+  getLargeAValue(): Promise<BigInteger> {
+    return promisify(super.getLargeAValue.bind(this))(arguments)
+  }
+  getPasswordAuthenticationKey(username: string, password: string, serverBValue: BigInteger, salt: BigInteger): Promise<Buffer> {
+    return promisify(super.getPasswordAuthenticationKey.bind(this))(username, password, serverBValue, salt)
+  }
+}
+
+type ChallengeParameters = {
+  USERNAME: string,
+  SECRET_BLOCK: string,
+  SRP_B: string,
+  SALT: string,
+}
+type ChallengeResponse = {
+  ChallengeName: 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA' | 'SELECT_MFA_TYPE' | 'MFA_SETUP' | 'PASSWORD_VERIFIER' | 'CUSTOM_CHALLENGE' |
+                 'DEVICE_SRP_AUTH' | 'DEVICE_PASSWORD_VERIFIER' | 'ADMIN_NO_SRP_AUTH' | 'NEW_PASSWORD_REQUIRED',
+  ChallengeParameters: ChallengeParameters,
+  Session: string,
+  AuthenticationResult: object,
 }
 
 export default class Auth {
   private cognito: any
-  private authHelper: any
+  private authHelper: AuthenticationHelperPromise
   private passwordFunc: () => Promise<string>
   private mfaFunc: () => Promise<string>
   private poolName: string
@@ -37,10 +55,11 @@ export default class Auth {
 
   async login() {
     const response = await this.initiateAuth()
-    return this.handleChallenge(response)
+    const { AuthenticationResult: auth } = await this.handleChallenge(response)
+    return auth
   }
 
-  async handleChallenge(response: any): Promise<any> {
+  async handleChallenge(response: ChallengeResponse): Promise<ChallengeResponse> {
     const {
       ChallengeName: challenge,
       ChallengeParameters: parameters,
@@ -54,7 +73,7 @@ export default class Auth {
       case 'SOFTWARE_TOKEN_MFA':
         return this.handleChallenge(await this.verifyMfa(session))
       case undefined:
-        return auth
+        return Promise.resolve(response)
       default:
         throw new Error(`Challenge not implemented: ${challenge}`)
     }
@@ -75,7 +94,7 @@ export default class Auth {
     return this.cognito.initiateAuth(params).promise()
   }
 
-  async verifyPassword(challengeParameters: any) {
+  async verifyPassword(challengeParameters: ChallengeParameters) {
     const {
       USERNAME,
       SECRET_BLOCK,
@@ -103,8 +122,8 @@ export default class Auth {
       ChallengeResponses: {
         USERNAME,
         PASSWORD_CLAIM_SECRET_BLOCK: SECRET_BLOCK,
-        TIMESTAMP: timestamp,
         PASSWORD_CLAIM_SIGNATURE: signature,
+        TIMESTAMP: timestamp,
       },
     }
     return this.cognito.respondToAuthChallenge(params).promise()
