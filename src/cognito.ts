@@ -72,6 +72,8 @@ export default class Auth {
         return this.handleChallenge(await this.verifyPassword(parameters))
       case 'SOFTWARE_TOKEN_MFA':
         return this.handleChallenge(await this.verifyMfa(session))
+      case 'SMS_MFA':
+        return this.handleChallenge(await this.verifySms(session))
       case undefined:
         return Promise.resolve(response)
       default:
@@ -139,6 +141,21 @@ export default class Auth {
       ChallengeResponses: {
         USERNAME: this.username,
         SOFTWARE_TOKEN_MFA_CODE: mfaCode,
+      },
+    }
+    return this.cognito.respondToAuthChallenge(params).promise()
+  }
+
+  async verifySms(session: string) {
+    const mfaCode = await this.mfaFunc()
+
+    const params = {
+      ChallengeName: 'SMS_MFA',
+      Session: session,
+      ClientId: this.clientId,
+      ChallengeResponses: {
+        USERNAME: this.username,
+        SMS_MFA_CODE: mfaCode,
       },
     }
     return this.cognito.respondToAuthChallenge(params).promise()
