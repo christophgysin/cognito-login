@@ -64,7 +64,6 @@ export default class Auth {
       ChallengeName: challenge,
       ChallengeParameters: parameters,
       Session: session,
-      AuthenticationResult: auth,
     } = response
 
     switch (challenge) {
