@@ -1,6 +1,11 @@
 import * as crypto from 'crypto'
 import { promisify } from 'util'
-import * as AWS from 'aws-sdk'
+import {
+  CognitoIdentityProviderClient,
+  InitiateAuthCommand,
+  RespondToAuthChallengeCommand,
+  RespondToAuthChallengeCommandOutput,
+} from '@aws-sdk/client-cognito-identity-provider'
 // TODO: use imports?
 const { DateHelper, AuthenticationHelper } = require('amazon-cognito-identity-js')
 const { default: BigInteger } = require('../node_modules/amazon-cognito-identity-js/lib/BigInteger')
@@ -19,21 +24,6 @@ class AuthenticationHelperPromise extends AuthenticationHelper {
   }
 }
 
-type ChallengeParameters = {
-  USERNAME: string,
-  SECRET_BLOCK: string,
-  SRP_B: string,
-  SALT: string,
-}
-
-type ChallengeResponse = {
-  ChallengeName: 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA' | 'SELECT_MFA_TYPE' | 'MFA_SETUP' | 'PASSWORD_VERIFIER' | 'CUSTOM_CHALLENGE' |
-                 'DEVICE_SRP_AUTH' | 'DEVICE_PASSWORD_VERIFIER' | 'ADMIN_NO_SRP_AUTH' | 'NEW_PASSWORD_REQUIRED',
-  ChallengeParameters: ChallengeParameters,
-  Session: string,
-  AuthenticationResult: object,
-}
-
 type StringOrPromise = string | Promise<string>
 
 type AuthOptions = {
@@ -43,18 +33,19 @@ type AuthOptions = {
   newPassword: string | (() => StringOrPromise),
 }
 
+type ChallengeParameters = { [key: string]: string }
+
 export default class Auth {
-  private cognito: any
+  private cognito: CognitoIdentityProviderClient
   private authHelper: AuthenticationHelperPromise
   private poolName: string
 
   constructor(readonly poolId: string, readonly clientId: string, readonly options: AuthOptions) {
     const [region, poolName] = poolId.split('_')
     this.poolName = poolName
-    this.cognito = new AWS.CognitoIdentityServiceProvider({
+    this.cognito = new CognitoIdentityProviderClient({
       apiVersion: '2016-04-18',
       region,
-      credentials: new AWS.Credentials('', '', ''),
     })
     this.authHelper = new AuthenticationHelperPromise(poolName)
   }
@@ -83,7 +74,7 @@ export default class Auth {
     return auth
   }
 
-  async handleChallenge(response: ChallengeResponse): Promise<ChallengeResponse> {
+  async handleChallenge(response: RespondToAuthChallengeCommandOutput): Promise<RespondToAuthChallengeCommandOutput> {
     const {
       ChallengeName: challenge,
       ChallengeParameters: parameters,
@@ -116,7 +107,7 @@ export default class Auth {
         SRP_A: srpA,
       },
     }
-    return this.cognito.initiateAuth(params).promise()
+    return this.cognito.send(new InitiateAuthCommand(params))
   }
 
   async verifyPassword(challengeParameters: ChallengeParameters) {
@@ -150,7 +141,7 @@ export default class Auth {
         TIMESTAMP: timestamp,
       },
     }
-    return this.cognito.respondToAuthChallenge(params).promise()
+    return this.cognito.send(new RespondToAuthChallengeCommand(params))
   }
 
   async verifyMfa(session: string) {
@@ -163,7 +154,7 @@ export default class Auth {
         SOFTWARE_TOKEN_MFA_CODE: await this.getMfa(),
       },
     }
-    return this.cognito.respondToAuthChallenge(params).promise()
+    return this.cognito.send(new RespondToAuthChallengeCommand(params))
   }
 
   async verifySms(session: string) {
@@ -177,6 +168,6 @@ export default class Auth {
         SMS_MFA_CODE: await this.getMfa(),
       },
     }
-    return this.cognito.respondToAuthChallenge(params).promise()
+    return this.cognito.send(new RespondToAuthChallengeCommand(params))
   }
 }
