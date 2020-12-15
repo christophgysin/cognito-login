@@ -39,7 +39,7 @@ class Muteable extends Writable {
   }
 }
 
-const prompt = (msg: string) => async (): Promise<string> => {
+const prompt = (msg: string, hidden: boolean = false) => async (): Promise<string> => {
   const stdout = new Muteable(process.stdout)
 
   const rl = readline.createInterface({
@@ -55,7 +55,9 @@ const prompt = (msg: string) => async (): Promise<string> => {
       stdout.unmute()
       stdout.write('\n')
     })
-    stdout.mute()
+    if (hidden) {
+      stdout.mute()
+    }
   })
 }
 
@@ -68,9 +70,9 @@ const main = async () => {
 
   const auth = new Auth(poolId, clientId, {
     username: username ?? prompt('Username'),
-    password: passwordArg ?? prompt('Password'),
-    mfa: mfaArg ?? prompt('MFA'),
-    newPassword: prompt('New Password'),
+    password: passwordArg ?? prompt('Password', true),
+    mfa: mfaArg ?? prompt('MFA', true),
+    newPassword: prompt('New Password', true),
   })
   const credentials = await auth.login()
   console.log(credentials)
