@@ -59,26 +59,21 @@ const prompt = (msg: string) => async (): Promise<string> => {
   })
 }
 
-const promptForPassword = prompt('Password')
-const promptForMFA = prompt('MFA')
-
 const main = async () => {
-  const args = process.argv.slice(2)
-  if (args.length < 1) {
-    console.error('Usage: login <username> [password]')
-    process.exit(1)
-  }
-
   const [
     username,
     passwordArg,
     mfaArg,
-  ] = args
+  ] = process.argv.slice(2)
 
-  const passwordFunc = (passwordArg !== undefined) ? () => Promise.resolve(passwordArg!) : promptForPassword
-  const mfaFunc = (mfaArg !== undefined) ? () => Promise.resolve(mfaArg!) : promptForMFA
-  const auth = await new Auth(poolId, clientId, username, passwordFunc, mfaFunc).login()
-  console.log(auth)
+  const auth = new Auth(poolId, clientId, {
+    username: username ?? prompt('Username'),
+    password: passwordArg ?? prompt('Password'),
+    mfa: mfaArg ?? prompt('MFA'),
+    newPassword: prompt('New Password'),
+  })
+  const credentials = await auth.login()
+  console.log(credentials)
 }
 
 Promise.resolve(main())

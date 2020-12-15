@@ -25,6 +25,7 @@ type ChallengeParameters = {
   SRP_B: string,
   SALT: string,
 }
+
 type ChallengeResponse = {
   ChallengeName: 'SMS_MFA' | 'SOFTWARE_TOKEN_MFA' | 'SELECT_MFA_TYPE' | 'MFA_SETUP' | 'PASSWORD_VERIFIER' | 'CUSTOM_CHALLENGE' |
                  'DEVICE_SRP_AUTH' | 'DEVICE_PASSWORD_VERIFIER' | 'ADMIN_NO_SRP_AUTH' | 'NEW_PASSWORD_REQUIRED',
@@ -33,14 +34,21 @@ type ChallengeResponse = {
   AuthenticationResult: object,
 }
 
+type StringOrPromise = string | Promise<string>
+
+type AuthOptions = {
+  username: string | (() => StringOrPromise),
+  password: string | (() => StringOrPromise),
+  mfa: string | (() => StringOrPromise),
+  newPassword: string | (() => StringOrPromise),
+}
+
 export default class Auth {
   private cognito: any
   private authHelper: AuthenticationHelperPromise
-  private passwordFunc: () => Promise<string>
-  private mfaFunc: () => Promise<string>
   private poolName: string
 
-  constructor(readonly poolId: string, readonly clientId: string, readonly username: string, passwordFunc: () => Promise<string>, mfaFunc: () => Promise<string>) {
+  constructor(readonly poolId: string, readonly clientId: string, readonly options: AuthOptions) {
     const [region, poolName] = poolId.split('_')
     this.poolName = poolName
     this.cognito = new AWS.CognitoIdentityServiceProvider({
@@ -49,8 +57,24 @@ export default class Auth {
       credentials: new AWS.Credentials('', '', ''),
     })
     this.authHelper = new AuthenticationHelperPromise(poolName)
-    this.passwordFunc = passwordFunc
-    this.mfaFunc = mfaFunc
+  }
+
+  async getUsername(): Promise<string> {
+    const { username } = this.options
+    this.options.username = (typeof username === 'string') ? username : await username()
+    return this.options.username
+  }
+
+  async getPassword(): Promise<string> {
+    const { password } = this.options
+    this.options.password = (typeof password === 'string') ? password : await password()
+    return this.options.password
+  }
+
+  async getMfa(): Promise<string> {
+    const { mfa } = this.options
+    this.options.mfa = (typeof mfa === 'string') ? mfa : await mfa()
+    return this.options.mfa
   }
 
   async login() {
@@ -88,7 +112,7 @@ export default class Auth {
       ClientId: this.clientId,
       AuthFlow: 'USER_SRP_AUTH',
       AuthParameters: {
-        USERNAME: this.username,
+        USERNAME: await this.getUsername(),
         SRP_A: srpA,
       },
     }
@@ -103,7 +127,7 @@ export default class Auth {
       SALT,
     } = challengeParameters
 
-    const password = await this.passwordFunc()
+    const password = await this.getPassword()
     const srpB = new BigInteger(SRP_B, 16)
     const salt = new BigInteger(SALT, 16)
     const key = await this.authHelper.getPasswordAuthenticationKey(USERNAME, password, srpB, salt)
@@ -130,30 +154,27 @@ export default class Auth {
   }
 
   async verifyMfa(session: string) {
-    const mfaCode = await this.mfaFunc()
-
     const params = {
       ChallengeName: 'SOFTWARE_TOKEN_MFA',
       Session: session,
       ClientId: this.clientId,
       ChallengeResponses: {
-        USERNAME: this.username,
-        SOFTWARE_TOKEN_MFA_CODE: mfaCode,
+        USERNAME: await this.getUsername(),
+        SOFTWARE_TOKEN_MFA_CODE: await this.getMfa(),
       },
     }
     return this.cognito.respondToAuthChallenge(params).promise()
   }
 
   async verifySms(session: string) {
-    const mfaCode = await this.mfaFunc()
 
     const params = {
       ChallengeName: 'SMS_MFA',
       Session: session,
       ClientId: this.clientId,
       ChallengeResponses: {
-        USERNAME: this.username,
-        SMS_MFA_CODE: mfaCode,
+        USERNAME: await this.getUsername(),
+        SMS_MFA_CODE: await this.getMfa(),
       },
     }
     return this.cognito.respondToAuthChallenge(params).promise()
