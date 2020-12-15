@@ -112,7 +112,6 @@ export default class Auth {
     const signature = crypto.createHmac('sha256', key)
       .update(this.poolName, 'utf8')
       .update(USERNAME, 'utf8')
-      // @ts-ignore TODO: see https://github.com/microsoft/TypeScript/issues/39528
       .update(SECRET_BLOCK, 'base64')
       .update(timestamp, 'utf8')
       .digest('base64')
