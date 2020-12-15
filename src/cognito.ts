@@ -11,10 +11,10 @@ class AuthenticationHelperPromise extends AuthenticationHelper {
   constructor(poolName: string) {
     super(poolName)
   }
-  getLargeAValue(): Promise<BigInteger> {
-    return promisify(super.getLargeAValue.bind(this))(arguments)
+  getLargeAValuePromise(): Promise<BigInteger> {
+    return promisify(super.getLargeAValue.bind(this))()
   }
-  getPasswordAuthenticationKey(username: string, password: string, serverBValue: BigInteger, salt: BigInteger): Promise<Buffer> {
+  getPasswordAuthenticationKeyPromise(username: string, password: string, serverBValue: BigInteger, salt: BigInteger): Promise<Buffer> {
     return promisify(super.getPasswordAuthenticationKey.bind(this))(username, password, serverBValue, salt)
   }
 }
@@ -105,7 +105,7 @@ export default class Auth {
   }
 
   async initiateAuth() {
-    const a = await this.authHelper.getLargeAValue()
+    const a = await this.authHelper.getLargeAValuePromise()
     const srpA = a.toString(16)
 
     const params = {
@@ -130,7 +130,7 @@ export default class Auth {
     const password = await this.getPassword()
     const srpB = new BigInteger(SRP_B, 16)
     const salt = new BigInteger(SALT, 16)
-    const key = await this.authHelper.getPasswordAuthenticationKey(USERNAME, password, srpB, salt)
+    const key = await this.authHelper.getPasswordAuthenticationKeyPromise(USERNAME, password, srpB, salt)
 
     const timestamp = new DateHelper().getNowString()
     const signature = crypto.createHmac('sha256', key)
