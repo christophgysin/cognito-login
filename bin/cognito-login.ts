@@ -81,7 +81,7 @@ const main = async () => {
     newPassword: prompt('New Password', true),
   })
   const credentials = await auth.login()
-  console.log(credentials)
+  console.log(JSON.stringify(credentials, null, 2))
 }
 
 Promise.resolve(main())
