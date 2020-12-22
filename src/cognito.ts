@@ -27,6 +27,8 @@ class AuthenticationHelperPromise extends AuthenticationHelper {
 type StringOrPromise = string | Promise<string>
 
 type AuthOptions = {
+  poolId: string,
+  clientId: string,
   username: string | (() => StringOrPromise),
   password: string | (() => StringOrPromise),
   mfa: string | (() => StringOrPromise),
@@ -40,7 +42,8 @@ export default class Auth {
   private authHelper: AuthenticationHelperPromise
   private poolName: string
 
-  constructor(readonly poolId: string, readonly clientId: string, readonly options: AuthOptions) {
+  constructor(readonly options: AuthOptions) {
+    const { poolId } = this.options
     const [region, poolName] = poolId.split('_')
     this.poolName = poolName
     this.cognito = new CognitoIdentityProviderClient({
@@ -100,7 +103,7 @@ export default class Auth {
     const srpA = a.toString(16)
 
     const params = {
-      ClientId: this.clientId,
+      ClientId: this.options.clientId,
       AuthFlow: 'USER_SRP_AUTH',
       AuthParameters: {
         USERNAME: await this.getUsername(),
@@ -133,7 +136,7 @@ export default class Auth {
 
     const params = {
       ChallengeName: 'PASSWORD_VERIFIER',
-      ClientId: this.clientId,
+      ClientId: this.options.clientId,
       ChallengeResponses: {
         USERNAME,
         PASSWORD_CLAIM_SECRET_BLOCK: SECRET_BLOCK,
@@ -148,7 +151,7 @@ export default class Auth {
     const params = {
       ChallengeName: 'SOFTWARE_TOKEN_MFA',
       Session: session,
-      ClientId: this.clientId,
+      ClientId: this.options.clientId,
       ChallengeResponses: {
         USERNAME: await this.getUsername(),
         SOFTWARE_TOKEN_MFA_CODE: await this.getMfa(),
@@ -162,7 +165,7 @@ export default class Auth {
     const params = {
       ChallengeName: 'SMS_MFA',
       Session: session,
-      ClientId: this.clientId,
+      ClientId: this.options.clientId,
       ChallengeResponses: {
         USERNAME: await this.getUsername(),
         SMS_MFA_CODE: await this.getMfa(),

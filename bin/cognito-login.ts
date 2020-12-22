@@ -3,11 +3,6 @@ import * as readline from 'readline'
 import { Writable } from 'stream'
 import Auth from '../src/cognito'
 
-const {
-  COGNITO_CLIENT_ID: clientId,
-  COGNITO_USER_POOL_ID: poolId,
-} = process.env
-
 class Muteable extends Writable {
   private muted: boolean = false
 
@@ -62,13 +57,24 @@ const prompt = (msg: string, hidden: boolean = false) => async (): Promise<strin
 }
 
 const main = async () => {
+  const args = process.argv.slice(2)
+
+  if (args.length < 2) {
+    console.error('Usage: login <poolId> <clientId> [username] [password] [mfa] [new password]')
+    process.exit(1)
+  }
+
   const [
+    poolId,
+    clientId,
     username,
     passwordArg,
     mfaArg,
-  ] = process.argv.slice(2)
+  ] = args
 
-  const auth = new Auth(poolId, clientId, {
+  const auth = new Auth({
+    poolId,
+    clientId,
     username: username ?? prompt('Username'),
     password: passwordArg ?? prompt('Password', true),
     mfa: mfaArg ?? prompt('MFA', true),
