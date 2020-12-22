@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+AUTH_RESULT=$(bin/cognito-login.ts $COGNITO_USER_POOL_ID $COGNITO_CLIENT_ID $USERNAME $PASSWORD)
+COGNITO_ID_TOKEN=$(jq -r.IdToken <<< $AUTH_RESULT)
+
+echo curl -H "Authorization: Bearer $COGNITO_ID_TOKEN" "$@"
